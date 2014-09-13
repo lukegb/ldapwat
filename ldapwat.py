@@ -3,8 +3,9 @@ from zope.interface import implements
 from twisted.internet.protocol import ServerFactory
 from twisted.python.components import registerAdapter
 from twisted.python import failure
+from twisted.python.modules import getModule
 from twisted.application import service, internet
-from twisted.internet import protocol, reactor, defer
+from twisted.internet import protocol, reactor, defer, ssl
 
 from ldaptor.protocols.ldap.ldapserver import LDAPServer
 from ldaptor.protocols.ldap import ldaperrors
@@ -221,7 +222,9 @@ registerAdapter(lambda x: x.root,
             interfaces.IConnectedLDAPEntry)
 
 factory = LDAPServerFactory(tree.db)
+certData = getModule(__name__).filePath.sibling('server.pem').getContent()
+certificate = ssl.PrivateCertificate.loadPEM(certData)
 application = service.Application("ldaptor-server")
 myService = service.IServiceCollection(application)
-reactor.listenTCP(3389, factory)
+reactor.listenSSL(3389, factory, certificate.options())
 reactor.run()
