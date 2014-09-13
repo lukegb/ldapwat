@@ -9,6 +9,7 @@ from twisted.internet import protocol, reactor, defer, ssl
 
 from ldaptor.protocols.ldap.ldapserver import LDAPServer
 from ldaptor.protocols.ldap import ldaperrors
+from ldaptor.protocols import pureber, pureldap
 from ldaptor import entry, entryhelpers, interfaces, inmemory
 
 from passlib.utils.pbkdf2 import pbkdf2
@@ -122,7 +123,7 @@ class DynamicPeopleTreeEntry(entry.BaseLDAPEntry,
 
     def _spawn_child(self, user):
         if user is None:
-            raise ldaperrors.LDAPNoSuchObject(dn)
+            return None
 
         return DynamicPersonEntry(user, self)
 
@@ -146,6 +147,45 @@ class DynamicPeopleTreeEntry(entry.BaseLDAPEntry,
         username = its_next_str[4:]
 
         return self._spawn_child(self._user_repo.fetch(username))
+
+    def search(self,
+               filterText=None,
+               filterObject=None,
+               attributes=(),
+               scope=None,
+               derefAliases=None,
+               sizeLimit=0,
+               timeLimit=0,
+               typesOnly=0,
+               callback=None):
+        if filterObject is None and filterText is not None:
+            filterObject = ldapfilter.parseFilter(fileText)
+        elif filterObject is not None and filterText is not None:
+            filterObject = pureldap.LDAPFilter_and((ldapfilter.parseFilter(filterText), filterObject))
+
+        if scope is None:
+            scope = pureldap.LDAP_SCOPE_wholeSubtree
+
+        if scope == pureldap.LDAP_SCOPE_wholeSubtree or scope == pureldap.LDAP_SCOPE_singleLevel:
+            try:
+                res = self._fast_search(filterObject)
+                return defer.succeed(res)
+            except:
+                pass # try slow path
+
+        return super(DynamicPeopleTreeEntry, self).search(filterText, filterObject, attributes, scope, derefAliases, sizeLimit, timeLimit, typesOnly, callback)
+
+    def _fast_search(self, filterObject):
+        if not isinstance(filterObject, pureldap.LDAPFilter_equalityMatch):
+            raise Exception("can't handle non equality")
+        elif filterObject.attributeDesc.value != 'uid':
+            raise Exception("can't handle non uid")
+
+        look_for = filterObject.assertionValue.value
+        u = self._spawn_child(self._user_repo.fetch(username))
+        if u is None:
+            return []
+        return [u]
 
 
 class Tree(object):
@@ -171,6 +211,31 @@ users = Table('users', metadata,
     Column('password_hash', String),
     Column('salt', String),
 )
+
+class TestUser(object):
+    def __init__(self, record):
+        self._record = record
+
+    @property
+    def username(self):
+        return self._record['username'].encode('utf-8')
+
+    @property
+    def full_name(self):
+        return self._record['name'].encode('utf-8')
+
+    def authenticate(self, password):
+        return self._record['password'] == password
+
+class TestUserRepo(object):
+    def __init__(self, records):
+        self.records = dict([(k, TestUser(v)) for (k, v) in records.items()])
+
+    def fetch(self, username):
+        return self.records.get(username)
+
+    def fetch_all(self):
+        return self.records.values()
 
 class ProductionUser(object):
     def __init__(self, record):
@@ -206,11 +271,21 @@ class ProductionUserRepo(object):
         for row in result:
             yield ProductionUser(row)
 
-if 'LDAPWAT_DB_URL' not in os.environ:
+if 'LDAPWAT_DB_URL' in os.environ:
+    repo = ProductionUserRepo(create_engine(os.environ.get('LDAPWAT_DB_URL'), encoding='utf-8', echo=True))
+elif 'LDAPWAT_USE_TEST' in os.environ:
+    repo = TestUserRepo({
+        'lukegb': {
+            'username': 'lukegb',
+            'password': 'test123',
+            'name': 'Luke GB',
+        },
+    })
+else:
     print "NOPE"
     sys.exit(1)
 
-tree = Tree(ProductionUserRepo(create_engine(os.environ.get('LDAPWAT_DB_URL'), encoding='utf-8', echo=True)))
+tree = Tree(repo)
 
 class LDAPServerFactory(ServerFactory):
     protocol = LDAPServer
