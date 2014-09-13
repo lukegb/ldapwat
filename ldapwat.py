@@ -328,10 +328,7 @@ class ChainedOpenSSLContextFactory(DefaultOpenSSLContextFactory):
         self._context = ctx
 
 factory = LDAPServerFactory(tree.db)
-#certData = getModule(__name__).filePath.sibling('server.pem').getContent()
-#certificate = ssl.PrivateCertificate.loadPEM(certData)
 application = service.Application("ldaptor-server")
 myService = service.IServiceCollection(application)
-#reactor.listenSSL(3389, factory, certificate.options())
-reactor.listenSSL(3389, factory, ChainedOpenSSLContextFactory('server.key', 'server.crt'))
+reactor.listenTCP(3389, factory)
 reactor.run()
