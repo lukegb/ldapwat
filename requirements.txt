@@ -1,0 +1,17 @@
+SQLAlchemy==0.9.7
+Twisted==14.0.0
+cffi==0.8.6
+characteristic==14.1.0
+cryptography==0.5.4
+ldaptor==0.0.0
+passlib==1.6.2
+psycopg2==2.5.4
+pyOpenSSL==0.14
+pyasn1==0.1.7
+pyasn1-modules==0.0.5
+pycparser==2.10
+pyparsing==2.0.2
+service-identity==14.0.0
+six==1.8.0
+wsgiref==0.1.2
+zope.interface==4.1.1
