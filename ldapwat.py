@@ -23,7 +23,7 @@ import os
 
 COUNTRY = ('dc=org', {'objectclass': ['dcObject'], 'dc':['org']})
 ORG = ('dc=spongepowered', {'objectclass':['dcObject'], 'dc':['spongepowered']})
-PEOPLE = ('ou=people', {'ou':'people', 'objectclass':['organizationalunit']})
+PEOPLE = ('ou=people', {'ou':['people'], 'objectclass':['organizationalunit']})
 
 class DynamicPersonEntry(entry.BaseLDAPEntry,
                 entryhelpers.DiffTreeMixin,
