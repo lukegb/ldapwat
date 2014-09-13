@@ -44,6 +44,7 @@ class DynamicPersonEntry(entry.BaseLDAPEntry,
             'cn': [user.full_name,],
             'sn': [user.full_name,],
             'uid': [user.username,],
+            'email': [user.email,],
         }
         return dn, attributes
 
@@ -209,6 +210,7 @@ users = Table('users', metadata,
     Column('id', Integer, primary_key=True),
     Column('name', String),
     Column('username', String),
+    Column('email', String),
     Column('password_hash', String),
     Column('salt', String),
 )
@@ -224,6 +226,10 @@ class TestUser(object):
     @property
     def full_name(self):
         return self._record['name'].encode('utf-8')
+
+    @property
+    def email(self):
+        return self._record['email'].encode('utf-8')
 
     def authenticate(self, password):
         return self._record['password'] == password
@@ -249,6 +255,10 @@ class ProductionUser(object):
     @property
     def full_name(self):
         return self._record[users.c.name].encode('utf-8')
+
+    @property
+    def email(self):
+        return self._record[users.c.email].encode('utf-8')
 
     def authenticate(self, password):
         calc = pbkdf2(password, str(self._record[users.c.salt]), 64000, None, 'hmac-sha256').encode('hex')
@@ -280,6 +290,7 @@ elif 'LDAPWAT_USE_TEST' in os.environ:
             'username': 'lukegb',
             'password': 'test123',
             'name': 'Luke GB',
+            'email': 'test@test.lukegb.com',
         },
     })
 else:
