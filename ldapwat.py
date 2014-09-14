@@ -44,7 +44,7 @@ class DynamicPersonEntry(entry.BaseLDAPEntry,
             'cn': [user.full_name,],
             'sn': [user.full_name,],
             'uid': [user.username,],
-            'email': [user.email,],
+            'mail': [user.email,],
         }
         return dn, attributes
 
